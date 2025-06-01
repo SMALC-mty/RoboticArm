@@ -69,28 +69,185 @@ pip install flask flask-socketio pyserial werkzeug
 
 ### 📋 Diagrama de Conexiones
 
+#### 🎯 **Esquema Completo del Sistema**
+
+```mermaid
+graph TB
+    %% Estilos principales
+    classDef arduino fill:#2E86AB,stroke:#A23B72,stroke-width:3px,color:#fff
+    classDef servo fill:#F18F01,stroke:#C73E1D,stroke-width:2px,color:#fff
+    classDef power fill:#85C88A,stroke:#539165,stroke-width:2px,color:#fff
+    classDef signal fill:#FFD23F,stroke:#EE964B,stroke-width:2px,color:#000
+    classDef computer fill:#6A4C93,stroke:#472D5B,stroke-width:3px,color:#fff
+    classDef connection stroke:#333,stroke-width:2px
+    
+    %% Componente principal
+    PC[💻 COMPUTADORA<br/>Python Flask Server<br/>115200 baud]:::computer
+    
+    %% Arduino
+    ARD[🔧 ARDUINO UNO<br/>ATmega328P<br/>16MHz]:::arduino
+    
+    %% LED de estado
+    LED[🔴 LED STATUS<br/>Pin 13]:::signal
+    
+    %% Servomotores
+    S1[🎯 SERVO 1<br/>BASE<br/>Rotación 0-180°]:::servo
+    S2[🎯 SERVO 2<br/>HOMBRO<br/>Elevación 0-180°]:::servo
+    S3[🎯 SERVO 3<br/>CODO<br/>Flexión 0-180°]:::servo
+    S4[🎯 SERVO 4<br/>MUÑECA<br/>Giro 0-180°]:::servo
+    
+    %% Alimentación
+    PWR5V[⚡ 5V POWER<br/>Fuente Externa<br/>Recomendada]:::power
+    GND[⚫ GND COMÚN<br/>Tierra del Sistema]:::power
+    
+    %% Conexiones principales
+    PC ---|🔌 Cable USB| ARD
+    ARD ---|Pin 13| LED
+    
+    %% Conexiones de señal (amarillo)
+    ARD ---|📍 Pin 3<br/>🟡 Señal PWM| S1
+    ARD ---|📍 Pin 5<br/>🟡 Señal PWM| S2
+    ARD ---|📍 Pin 6<br/>🟡 Señal PWM| S3
+    ARD ---|📍 Pin 9<br/>🟡 Señal PWM| S4
+    
+    %% Conexiones de alimentación
+    PWR5V ---|🔴 +5V| S1
+    PWR5V ---|🔴 +5V| S2
+    PWR5V ---|🔴 +5V| S3
+    PWR5V ---|🔴 +5V| S4
+    
+    ARD ---|5V Arduino| PWR5V
+    
+    %% Conexiones de tierra
+    GND ---|⚫ GND| S1
+    GND ---|⚫ GND| S2
+    GND ---|⚫ GND| S3
+    GND ---|⚫ GND| S4
+    GND ---|⚫ GND Arduino| ARD
+    
+    %% Subgrafo para organizar servos
+    subgraph SERVOS[🤖 SISTEMA DE SERVOMOTORES]
+        S1
+        S2
+        S3
+        S4
+    end
+    
+    %% Subgrafo para alimentación
+    subgraph POWER[⚡ SISTEMA DE ALIMENTACIÓN]
+        PWR5V
+        GND
+    end
+    
+    %% Notas importantes
+    subgraph NOTAS[📝 ESPECIFICACIONES TÉCNICAS]
+        NOTE1[⚡ Baudrate: 115200 bps<br/>🎯 Resolución: 1° por paso<br/>📏 Rango: 0-180° cada servo<br/>⏱️ Tiempo respuesta: 40-400ms<br/>🔄 Comandos/seg: hasta 50 Hz]
+    end
+    
+    %% Estilo para notas
+    classDef notes fill:#E8F4FD,stroke:#1E88E5,stroke-width:2px,color:#000
+    class NOTE1 notes
 ```
-Arduino Uno
-┌─────────────────┐
-│  [USB]          │
-│                 │
-│ 13 ●────● LED   │
-│ 12 ●            │
-│ 11 ●            │
-│ 10 ●            │
-│  9 ●────● Servo4│
-│  8 ●            │
-│  7 ●            │
-│  6 ●────● Servo3│
-│  5 ●────● Servo2│
-│  4 ●            │
-│  3 ●────● Servo1│
-│  2 ●            │
-│                 │
-│ 5V ●────● Servos│
-│GND ●────● Servos│
-└─────────────────┘
+
+#### 🔌 **Tabla de Conexiones Detallada**
+
+| 🎯 **Componente** | 📍 **Pin Arduino** | 🎨 **Color Cable** | ⚡ **Función** | 📝 **Descripción** |
+|-------------------|--------------------|--------------------|-----------------|-------------------|
+| **🔄 Servo Base** | Pin 3 (PWM) | 🟡 Amarillo | Señal Control | Rotación base 0-180° |
+| **🦾 Servo Hombro** | Pin 5 (PWM) | 🟡 Amarillo | Señal Control | Elevación brazo 0-180° |
+| **🔩 Servo Codo** | Pin 6 (PWM) | 🟡 Amarillo | Señal Control | Flexión articulación 0-180° |
+| **✋ Servo Muñeca** | Pin 9 (PWM) | 🟡 Amarillo | Señal Control | Giro final 0-180° |
+| **🔴 LED Estado** | Pin 13 | 🔴 Rojo | Indicador Visual | Estado de conexión |
+| **⚡ Alimentación** | 5V | 🔴 Rojo | Poder (+) | Todos los servos |
+| **⚫ Tierra** | GND | ⚫ Negro | Poder (-) | Referencia común |
+
+#### 🔧 **Configuración de Pines Arduino**
+
 ```
+      ARDUINO UNO - PINOUT ESPECÍFICO
+  ┌─────────────────────────────────────┐
+  │               [USB]                 │
+  │   ┌─────────────────────────────┐   │
+  │   │  🔴 Pin 13 → LED STATUS    │   │
+  │   │  ⚪ Pin 12 → (Libre)       │   │
+  │   │  ⚪ Pin 11 → (Libre)       │   │
+  │   │  ⚪ Pin 10 → (Libre)       │   │
+  │   │  🟡 Pin 9  → SERVO 4       │   │
+  │   │  ⚪ Pin 8  → (Libre)       │   │
+  │   │  ⚪ Pin 7  → (Libre)       │   │
+  │   │  🟡 Pin 6  → SERVO 3       │   │
+  │   │  🟡 Pin 5  → SERVO 2       │   │
+  │   │  ⚪ Pin 4  → (Libre)       │   │
+  │   │  🟡 Pin 3  → SERVO 1       │   │
+  │   │  ⚪ Pin 2  → (Libre)       │   │
+  │   │  📡 Pin 1  → TX (USB)      │   │
+  │   │  📡 Pin 0  → RX (USB)      │   │
+  │   └─────────────────────────────────┘   │
+  │                                         │
+  │  🔴 5V  ──────── Servos (+)            │
+  │  ⚫ GND ──────── Servos (-)            │
+  │  ⚪ 3.3V (No usar)                     │
+  │  ⚪ VIN  (No usar)                     │
+  └─────────────────────────────────────────┘
+```
+
+#### ⚡ **Especificaciones de Alimentación**
+
+> **🚨 IMPORTANTE:** Para un funcionamiento óptimo, utiliza una **fuente externa de 5V** con capacidad suficiente para 4 servomotores.
+
+| 📊 **Parámetro** | 🔢 **Valor** | 📝 **Observaciones** |
+|-------------------|--------------|---------------------|
+| **Voltaje Servos** | 5V DC | Requerido para SG90/MG90S |
+| **Corriente por Servo** | 100-500mA | Según carga mecánica |
+| **Corriente Total** | 2A máximo | Para 4 servos + Arduino |
+| **Voltaje Arduino** | 5V (USB) | Alimentado por computadora |
+| **Comunicación** | 115200 baud | Alta velocidad garantizada |
+
+#### 🎯 **Guía de Ensamblaje Paso a Paso**
+
+1. **🔌 Conexión de Señales**
+   ```
+   Arduino Pin 3  →  Servo 1 (Cable Amarillo)
+   Arduino Pin 5  →  Servo 2 (Cable Amarillo)  
+   Arduino Pin 6  →  Servo 3 (Cable Amarillo)
+   Arduino Pin 9  →  Servo 4 (Cable Amarillo)
+   ```
+
+2. **⚡ Conexión de Alimentación**
+   ```
+   Arduino 5V     →  Todos los Servos (Cable Rojo)
+   Arduino GND    →  Todos los Servos (Cable Negro)
+   ```
+
+3. **🔴 LED de Estado**
+   ```
+   Arduino Pin 13 →  LED (Integrado en placa)
+   ```
+
+4. **📡 Comunicación**
+   ```
+   Arduino USB    →  Computadora (115200 baud)
+   ```
+
+#### 🛡️ **Consejos de Seguridad**
+
+- ✅ **Verifica polaridad** antes de conectar alimentación
+- ✅ **Usa fuente externa** para evitar sobrecarga del Arduino
+- ✅ **Conecta GND primero** antes que VCC
+- ✅ **Revisa continuidad** de todas las conexiones
+- ✅ **Evita cortocircuitos** con cables sueltos
+- ✅ **Prueba un servo a la vez** inicialmente
+
+#### 🔧 **Herramientas Necesarias**
+
+| 🛠️ **Herramienta** | 📝 **Uso** |
+|-------------------|------------|
+| **Multímetro** | Verificar continuidad y voltajes |
+| **Destornilladores** | Ajustar terminales |
+| **Alicates** | Pelar y doblar cables |
+| **Protoboard** | Conexiones temporales |
+| **Cables Jumper** | Interconexiones flexibles |
+| **Fuente 5V** | Alimentación externa |
 
 ## 🚀 Instalación Paso a Paso
 
@@ -365,7 +522,7 @@ Este proyecto está bajo la **Licencia MIT** - ve el archivo [LICENSE](LICENSE) 
 
 ## 👨‍💻 Autor
 
-
+[Tu nombre aquí]
 
 ## 🙏 Agradecimientos
 
